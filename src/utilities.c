@@ -6,7 +6,7 @@
 /*   By: ankinzin <ankinzin@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/07/12 15:38:41 by ankinzin          #+#    #+#             */
-/*   Updated: 2023/08/18 15:23:05 by ankinzin         ###   ########.fr       */
+/*   Updated: 2023/09/02 16:57:45 by ankinzin         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,19 +59,9 @@ long long	ft_abs_time(t_philo *root)
 void	ft_print(t_philo *root, char *str)
 {
 	long long	time_ms;
-	short	died;
-
-	pthread_mutex_lock(&root->data->deaths);
-	died = root->data->god.died;
-	pthread_mutex_unlock(&root->data->deaths);
 
 	time_ms = (ft_get_time() - root->data->t_init);
 	pthread_mutex_lock(&root->data->print);
-	if (root->data->god.all_ate || died)
-	{
-		pthread_mutex_unlock(&root->data->print);
-		return ;
-	}
 	printf("%lld %d %s\n", time_ms, root->id, str);
 	pthread_mutex_unlock(&root->data->print);
 }

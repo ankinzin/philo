@@ -6,7 +6,7 @@
 /*   By: ankinzin <ankinzin@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/07/27 12:34:44 by ankinzin          #+#    #+#             */
-/*   Updated: 2023/08/18 15:21:32 by ankinzin         ###   ########.fr       */
+/*   Updated: 2023/09/02 16:57:46 by ankinzin         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -70,47 +70,40 @@ int	ft_check_is_num(char **argv)
 	return (1);
 }
 
-/* this func ensures that the simulation responds to the philosophers
-** activities appropriately, monitoring for potential deaths and
-** tracking meals completion*/
-static int	ft_god_complement(t_philo *root)
+void	ft_count_meals(t_philo *root)
 {
-	if ((ft_get_time() - root->last_meal) > root->data->t_die)
+	pthread_mutex_lock(&root->mtx_meal);
+	if (root->num_of_meals == 0)
 	{
-		ft_print(root, "died");
-		pthread_mutex_lock(&root->data->deaths);
-		root->data->god.died = 1;
-		pthread_mutex_unlock(&root->data->deaths);
-		return (1);
+		root->data->n_must_eat -= 1;
+		root->num_of_meals -= 1;
 	}
-	if ((root->num_of_meals >= root->data->n_must_eat)
-		&& root->data->n_must_eat != -1)
-		root->data->god.num_of_meals++;
-	if (root->data->god.num_of_meals == root->data->num_of_philo)
-	{
-		ft_print(root, "All philosophers ate enough\n");
-		root->data->god.all_ate = 1;
-		return (1);
-	}
-	return (0);
+	pthread_mutex_unlock(&root->mtx_meal);
 }
 
 /* This func acts like the supervisor of the simulation, ensuring that
 ** any critical events are detected and acted upon promptly*/
-void	ft_god(t_data *data)
+void	*ft_god(void *in_data)
 {
 	int		i;
-	t_philo	*root;
+	t_data	*data;
 
+	data = (t_data *)in_data;
 	while (1)
 	{
 		i = -1;
-		data->god.num_of_meals = 0;
+		data->currtime = ft_get_time();
 		while (++i < data->num_of_philo)
 		{
-			root = &data->philosophers[i];
-			if (ft_god_complement(root))
-				return ;
+			ft_count_meals(&data->philosophers[i]);
+			if (ft_god_complement(&data->philosophers[i]))
+				return (NULL);
+		}
+		if (data->n_must_eat == 0)
+		{
+			ft_print(&data->philosophers[i], "HOWWWWWWWWWW");
+			return (NULL);
 		}
 	}
+	return (NULL);
 }

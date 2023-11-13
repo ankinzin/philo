@@ -6,16 +6,47 @@
 /*   By: ankinzin <ankinzin@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/07/27 12:34:47 by ankinzin          #+#    #+#             */
-/*   Updated: 2023/08/18 15:30:52 by ankinzin         ###   ########.fr       */
+/*   Updated: 2023/09/02 17:05:35 by ankinzin         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../includes/philo.h"
 
+/* This func helps a philosopher pickup necessary forks and eat by first
+** picking the left fork and announces it, and then check if there's only
+** one philosopher present if one we waits and returns, if there's more we
+** pick right fork too*/
+static void	ft_grab_forks(t_philo *root)
+{
+	long long	time_ms;
+	long long	time_2_ms;
+
+	if (is_dead(root))
+		return ;
+	time_ms = (ft_get_time() - root->data->t_init);
+	time_2_ms = (ft_get_time() - root->data->t_init);
+	pthread_mutex_lock(&root->data->print);
+	printf("%lld %d has taken a fork\n", time_ms, root->id);
+	printf("%lld %d has taken a fork\n", time_2_ms, root->id);
+	pthread_mutex_unlock(&root->data->print);
+}
+
 static void	ft_sleep(t_philo *root)
 {
+	long long	start_sleeping;
+	long long	finish;
+
+	start_sleeping = ft_get_time();
+	finish = root->data->t_sleep + start_sleeping;
+	if (is_dead(root))
+		return ;
 	ft_print(root, "is sleeping");
-	usleep(root->data->t_sleep * 1000);
+	while (ft_get_time() < finish)
+	{
+		if (is_dead(root))
+			return ;
+		usleep(500);
+	}
 }
 
 /* This func is responsible for letting us know that a philosopher is eating
@@ -24,45 +55,57 @@ static void	ft_sleep(t_philo *root)
 ** of how many meals philo's has eaten*/
 static void	ft_eat(t_philo *root)
 {
-	ft_print(root, "is eating");
+	long long	finish;
+	long long	start_eating;
+
+	start_eating = ft_get_time();
+	pthread_mutex_lock(&root->mtx_meal);
 	root->last_meal = ft_get_time();
-	usleep(root->data->t_eat * 1000);
-	pthread_mutex_unlock(root->left_fork);
-	pthread_mutex_unlock(root->right_fork);
-	root->num_of_meals++;
+	if (root->num_of_meals > 0)
+		root->num_of_meals -= 1;
+	pthread_mutex_unlock(&root->mtx_meal);
+	finish = root->data->t_eat + start_eating;
+	if (is_dead(root))
+		return ;
+	pthread_mutex_lock(&root->data->print);
+	printf("%lld %d eating\n", start_eating - root->data->t_init, root->id);
+	pthread_mutex_unlock(&root->data->print);
+	while (ft_get_time() < finish)
+	{
+		if (is_dead(root))
+			return ;
+		usleep(500);
+	}
+	return ;
 }
 
-/* This func helps a philosopher pickup necessary forks and eat by first
-** picking the left fork and announces it, and then check if there's only
-** one philosopher present if one we waits and returns, if there's more we
-** pick right fork too*/
-static int	ft_grab_forks(t_philo *root)
+static void	ft_think(t_philo *root)
 {
-	pthread_mutex_lock(root->left_fork);
-	ft_print(root, "has taken a fork");
-	if (root->data->num_of_philo == 1)
-	{
-		usleep(root->data->t_eat * 1000);
-		return (0);
-	}
-	if (root->data->god.died)
-		return (0);
-	pthread_mutex_lock(root->right_fork);
-	ft_print(root, "has taken a fork");
-	return (1);
-}
+	long long	t_think;
+	long long	curr_time;
+	long long	stop_thinking_at;
 
-
-bool	is_dead(t_philo *root)
-{
-	pthread_mutex_lock(&root->data->deaths);
-	if (root->data->god.died)
+	curr_time = ft_get_time();
+	if (is_dead(root))
+		return ;
+	pthread_mutex_lock(&root->mtx_meal);
+	t_think = (root->data->t_die - (ft_get_time()
+				- root->last_meal) - root->data->t_eat) / 2;
+	if (t_think < 0)
+		t_think = 0;
+	if (t_think > 600)
+		t_think = 200;
+	stop_thinking_at = t_think + curr_time;
+	pthread_mutex_unlock(&root->mtx_meal);
+	pthread_mutex_lock(&root->data->print);
+	printf("%lld %d is thinking\n", curr_time - root->data->t_init, root->id);
+	pthread_mutex_unlock(&root->data->print);
+	while (ft_get_time() < stop_thinking_at)
 	{
-		pthread_mutex_unlock(&root->data->deaths);
-		return (true);
+		if (is_dead(root))
+			return ;
+		usleep(500);
 	}
-	pthread_mutex_unlock(&root->data->deaths);
-	return (false);
 }
 
 /* This func represents the actions of a philo while they're on the
@@ -74,32 +117,20 @@ void	*ft_action(void *philosopher)
 	t_philo	*root;
 
 	root = (t_philo *)philosopher;
-	root->last_meal = ft_get_time();
-	if (root->id % 2)
-		usleep((root->data->t_eat * 1000) / 2);
 	while (1)
 	{
+		if (root->id % 2)
+			usleep(1000);
 		if (is_dead(root))
 			break ;
-		// if (root->data->god.died)
-		// 	break ;
-		if (!ft_grab_forks(root))
-			break ;
-		if (is_dead(root))
-			break ;
-		// if (root->data->god.died)
-		// 	break ;
+		pthread_mutex_lock(root->left_fork.m_fork);
+		pthread_mutex_lock(root->right_fork.m_fork);
+		ft_grab_forks(root);
 		ft_eat(root);
-		if (is_dead(root))
-			break ;
-		if ((root->num_of_meals == root->data->n_must_eat || root->data->god.all_ate))
-			break ;
+		pthread_mutex_unlock(root->right_fork.m_fork);
+		pthread_mutex_unlock(root->left_fork.m_fork);
 		ft_sleep(root);
-		if (is_dead(root))
-			break ;
-		// if (root->data->god.died)
-		// 	break ;
-		ft_print(root, "is thinking");
+		ft_think(root);
 	}
-	return ((void *)root);
+	return (NULL);
 }

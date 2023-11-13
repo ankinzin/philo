@@ -6,7 +6,7 @@
 /*   By: ankinzin <ankinzin@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/07/12 15:38:44 by ankinzin          #+#    #+#             */
-/*   Updated: 2023/08/14 14:24:13 by ankinzin         ###   ########.fr       */
+/*   Updated: 2023/09/02 16:57:45 by ankinzin         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,6 +31,8 @@ void	ft_destroy_free(t_data *data)
 		pthread_mutex_destroy(&data->fork[i]);
 	free (data->fork);
 	free (data->philosophers);
+	data = NULL;
+	free(data);
 }
 
 void	ft_print_exit(char *str, int flag)

@@ -6,7 +6,7 @@
 #    By: ankinzin <ankinzin@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/10 15:17:05 by ankinzin          #+#    #+#              #
-#    Updated: 2023/08/18 15:27:47 by ankinzin         ###   ########.fr        #
+#    Updated: 2023/09/04 12:46:37 by ankinzin         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -14,12 +14,13 @@ NAME = philo
 
 # Compiler & flags //////////////////////////////////////////////////////////////
 CC = cc
-CFLAGS = -Wall -Wextra -Werror -g -O0 -fsanitize=thread
+CFLAGS = -Wall -Wextra -Werror -g -O0 #-fsanitize=thread
 THREAD = -pthread
 
 # Source Files /////////////////////////////////////////////////////////////////
 SRCDIR = ./src/
-SRC = activity.c check.c initialization.c main.c utilities.c utilities2.c
+SRC = activity.c spare.c spare2.c check.c initialization.c \
+		main.c utilities.c utilities2.c
 SRCS	= $(addprefix $(SRCDIR), $(SRC))
 OBJ		= $(addprefix $(SRCDIR), $(SRC:.c=.o))
 

@@ -6,7 +6,7 @@
 /*   By: ankinzin <ankinzin@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/07/27 12:34:41 by ankinzin          #+#    #+#             */
-/*   Updated: 2023/08/18 15:30:26 by ankinzin         ###   ########.fr       */
+/*   Updated: 2023/09/02 17:52:50 by ankinzin         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,8 @@ int	ft_initialize_data(t_data *data, int argc, char **argv)
 
 	i = 1;
 	data->n_must_eat = -1;
+	data->all_ate = 0;
+	data->death_cause = false;
 	data->num_of_philo = ft_atoi(argv[i++]);
 	data->t_die = ft_atoi(argv[i++]);
 	data->t_eat = ft_atoi(argv[i++]);
@@ -33,12 +35,6 @@ int	ft_initialize_data(t_data *data, int argc, char **argv)
 int	ft_initialize_print(t_data *data)
 {
 	if (pthread_mutex_init(&data->print, NULL))
-	{
-		printf("Error: mutex init failed\n");
-		return (0);
-	}
-
-	if (pthread_mutex_init(&data->deaths, NULL))
 	{
 		printf("Error: mutex init failed\n");
 		return (0);
@@ -83,27 +79,27 @@ int	ft_initialize_philo(t_data *data)
 {
 	int	i;
 
-	data->philosophers = (t_philo *)malloc(sizeof
-			(t_philo) * data->num_of_philo);
-	if (!data->philosophers)
-	{
-		pthread_mutex_destroy(&data->print);
-		ft_destroy_mutex_fork(data);
-		free (data->fork);
-		printf("Error: malloc philosophers failed\n");
-		return (0);
-	}
-	memset(data->philosophers, 0, sizeof
-		(t_philo) * data->num_of_philo);
+	data->philosophers = (t_philo *)malloc
+		(sizeof(t_philo) * data->num_of_philo);
+	if (!ft_safety_check (data))
+		return (1);
+	memset(data->philosophers, 0, sizeof(t_philo) * data->num_of_philo);
 	i = -1;
 	while (++i < data->num_of_philo)
 	{
 		data->philosophers[i].id = i + 1;
-		data->philosophers[i].num_of_meals = 0;
-		data->philosophers[i].left_fork = &data->fork[i];
-		data->philosophers[i].right_fork = &data->fork[(i + 1)
-			% data->num_of_philo];
+		data->philosophers[i].last_meal = data->t_init;
+		data->philosophers[i].left_fork.m_fork = &data->fork[i];
+		data->philosophers[i].left_fork.id = i + 1;
+		data->philosophers[i].right_fork.m_fork
+			= &data->fork[(i + 1) % data->num_of_philo];
+		data->philosophers[i].right_fork.id
+			= (i + 1) % data->num_of_philo + 1;
 		data->philosophers[i].data = data;
+		data->philosophers[i].died = 0;
+		data->philosophers[i].num_of_meals = data->n_must_eat;
+		if (!ft_initialize_philo_mtx(data, i))
+			return (0);
 	}
 	return (1);
 }
@@ -112,12 +108,12 @@ int	ft_initialize_philo(t_data *data)
 ** simulation, ensures proper thread creation, monitoring an synchronization */
 int	ft_initialize_simulation(t_data *data)
 {
-	int	i;
+	int			i;
+	pthread_t	monitor;
 
-	data->god.all_ate = 0;
-	data->god.died = 0;
+	data->all_ate = 0;
+	data->death_cause = false;
 	i = -1;
-	data->t_init = ft_get_time();
 	while (++i < data->num_of_philo)
 	{
 		if (pthread_create(&data->philosophers[i].thread,
@@ -127,11 +123,13 @@ int	ft_initialize_simulation(t_data *data)
 			printf("Error: Simulation Failed \n");
 			return (0);
 		}
-		// usleep(SPAWN_RATE * 1000);
 	}
-	ft_god(data);
+	pthread_create(&monitor, NULL, ft_god, data);
 	i = -1;
 	while (++i < data->num_of_philo)
 		pthread_join(data->philosophers[i].thread, NULL);
+	pthread_join(monitor, NULL);
+	if (data->death_cause)
+		printf("%lld %d is dead\n", data->dead_at, data->dead_philo);
 	return (1);
 }
